@@ -11,10 +11,10 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- Firebase SDKs -->
+  <!-- Firebase Realtime Database SDK -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getFirestore, doc, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyB8hpGlw5KAiH3RHwJ3m3HrT5wkitlesJ4",
@@ -27,10 +27,12 @@
     };
 
     const app = initializeApp(firebaseConfig);
-    window.db = getFirestore(app);
-    window.firestoreDoc = doc;
-    window.firestoreOnSnapshot = onSnapshot;
-    window.firestoreSetDoc = setDoc;
+    const db = getDatabase(app);
+
+    window.rtdb = db;
+    window.rtdbRef = ref;
+    window.rtdbOnValue = onValue;
+    window.rtdbSet = set;
   </script>
 </head>
 <body class="bg-slate-950 text-slate-100">
@@ -78,6 +80,7 @@
       const [chapitreSelectionneId, setChapitreSelectionneId] = useState(101);
       const [ligneActive, setLigneActive] = useState(null);
       const [ongletActif, setOngletActif] = useState('relecture');
+      const [statutFirebase, setStatutFirebase] = useState('Connexion...');
 
       const [texteNouveauParagraphe, setTexteNouveauParagraphe] = useState('');
       const [texteCommentaire, setTexteCommentaire] = useState('');
@@ -87,38 +90,46 @@
       const [urlImageEnCours, setUrlImageEnCours] = useState('');
       const [erreurEdition, setErreurEdition] = useState('');
 
-      // SYNCHRONISATION TEMPS RÉEL AVEC FIREBASE
+      // Synchronisation Realtime Database
       useEffect(() => {
-        const interval = setInterval(() => {
-          if (window.db && window.firestoreOnSnapshot) {
-            clearInterval(interval);
-            const docRef = window.firestoreDoc(window.db, "projets", "plume_main");
+        const checkInterval = setInterval(() => {
+          if (window.rtdb && window.rtdbRef && window.rtdbOnValue) {
+            clearInterval(checkInterval);
+            const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_main/livres');
             
-            window.firestoreOnSnapshot(docRef, (docSnap) => {
-              if (docSnap.exists()) {
-                setLivres(docSnap.data().livres || []);
+            window.rtdbOnValue(livresRef, (snapshot) => {
+              const data = snapshot.val();
+              if (data) {
+                setLivres(data);
+                setStatutFirebase('Synchronisé');
               } else {
-                // Initialise le document s'il n'existe pas encore
-                window.firestoreSetDoc(docRef, { livres: INITIAL_LIVRES });
+                window.rtdbSet(livresRef, INITIAL_LIVRES);
+                setStatutFirebase('Base initialisée');
               }
+            }, (error) => {
+              console.error(error);
+              setStatutFirebase('Erreur de connexion');
             });
           }
         }, 300);
 
-        return () => clearInterval(interval);
+        return () => clearInterval(checkInterval);
       }, []);
 
       const sauvegarderSurFirebase = (nouveauxLivres) => {
         setLivres(nouveauxLivres);
-        if (window.db && window.firestoreSetDoc) {
-          const docRef = window.firestoreDoc(window.db, "projets", "plume_main");
-          window.firestoreSetDoc(docRef, { livres: nouveauxLivres });
+        if (window.rtdb && window.rtdbRef && window.rtdbSet) {
+          setStatutFirebase('Sauvegarde...');
+          const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_main/livres');
+          window.rtdbSet(livresRef, nouveauxLivres)
+            .then(() => setStatutFirebase('Enregistré !'))
+            .catch(() => setStatutFirebase('Erreur sauvegarde'));
         }
       };
 
       useEffect(() => {
         const livre = livres.find(l => l.id === livreSelectionneId);
-        if (livre && livre.chapitres.length > 0) {
+        if (livre && livre.chapitres && livre.chapitres.length > 0) {
           setChapitreSelectionneId(livre.chapitres[0].id);
         } else {
           setChapitreSelectionneId(null);
@@ -127,12 +138,7 @@
       }, [livreSelectionneId]);
 
       const livreActif = livres.find(l => l.id === livreSelectionneId);
-      const chapitreActif = livreActif?.chapitres.find(c => c.id === chapitreSelectionneId);
-
-      const estAuteurAutorise = livreActif && (
-        livreActif.createur.toLowerCase() === utilisateurActif.nom.toLowerCase() ||
-        livreActif.coAuteurs.some(a => a.toLowerCase() === utilisateurActif.nom.toLowerCase())
-      );
+      const chapitreActif = livreActif?.chapitres?.find(c => c.id === chapitreSelectionneId);
 
       const gererSelectionLigne = (ligne) => {
         setLigneActive(ligne);
@@ -157,9 +163,9 @@
           if (l.id !== livreSelectionneId) return l;
           return {
             ...l,
-            chapitres: l.chapitres.map(c => {
+            chapitres: (l.chapitres || []).map(c => {
               if (c.id !== chapitreSelectionneId) return c;
-              return { ...c, lignes: [...c.lignes, nouvelleLigne] };
+              return { ...c, lignes: [...(c.lignes || []), nouvelleLigne] };
             })
           };
         });
@@ -181,11 +187,11 @@
           if (l.id !== livreSelectionneId) return l;
           return {
             ...l,
-            chapitres: l.chapitres.map(c => {
+            chapitres: (l.chapitres || []).map(c => {
               if (c.id !== chapitreSelectionneId) return c;
               return {
                 ...c,
-                lignes: c.lignes.map(line => {
+                lignes: (c.lignes || []).map(line => {
                   if (line.id !== ligneActive.id) return line;
                   return { 
                     ...line, 
@@ -216,13 +222,13 @@
           if (l.id !== livreSelectionneId) return l;
           return {
             ...l,
-            chapitres: l.chapitres.map(c => {
+            chapitres: (l.chapitres || []).map(c => {
               if (c.id !== chapitreSelectionneId) return c;
               return {
                 ...c,
-                lignes: c.lignes.map(line => {
+                lignes: (c.lignes || []).map(line => {
                   if (line.id !== ligneActive.id) return line;
-                  return { ...line, commentaires: [...line.commentaires, nouveauCom] };
+                  return { ...line, commentaires: [...(line.commentaires || []), nouveauCom] };
                 })
               };
             })
@@ -240,15 +246,15 @@
           if (l.id !== livreSelectionneId) return l;
           return {
             ...l,
-            chapitres: l.chapitres.map(c => {
+            chapitres: (l.chapitres || []).map(c => {
               if (c.id !== chapitreSelectionneId) return c;
               return {
                 ...c,
-                lignes: c.lignes.map(line => {
+                lignes: (c.lignes || []).map(line => {
                   if (line.id !== ligneActive.id) return line;
                   return {
                     ...line,
-                    commentaires: line.commentaires.filter(com => com.id !== commentaireId)
+                    commentaires: (line.commentaires || []).filter(com => com.id !== commentaireId)
                   };
                 })
               };
@@ -275,7 +281,7 @@
 
         const maj = livres.map(l => {
           if (l.id !== livreSelectionneId) return l;
-          return { ...l, discussionInterne: [...l.discussionInterne, nouveauMsg] };
+          return { ...l, discussionInterne: [...(l.discussionInterne || []), nouveauMsg] };
         });
 
         sauvegarderSurFirebase(maj);
@@ -291,9 +297,14 @@
                 Plume Collective
               </h1>
             </div>
-            <div className="flex items-center gap-4 bg-slate-950/60 border border-slate-800 px-4 py-1.5 rounded-full">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span className="text-xs font-semibold text-slate-300 tracking-wide uppercase">Auteur : {utilisateurActif.nom}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[10px] bg-slate-800 text-amber-400 px-2.5 py-1 rounded-full border border-slate-700 font-mono">
+                {statutFirebase}
+              </span>
+              <div className="flex items-center gap-2 bg-slate-950/60 border border-slate-800 px-4 py-1.5 rounded-full">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-xs font-semibold text-slate-300 tracking-wide uppercase">Auteur : {utilisateurActif.nom}</span>
+              </div>
             </div>
           </header>
 
@@ -326,7 +337,7 @@
                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{livre.synopsis}</p>
                     <div className="flex flex-wrap gap-1 items-center pt-1 text-[10px] text-slate-500">
                       <span className="text-amber-500/80 font-bold">👑 {livre.createur}</span>
-                      {livre.coAuteurs.map(a => <span key={a} className="before:content-['•'] before:mx-1"> {a}</span>)}
+                      {(livre.coAuteurs || []).map(a => <span key={a} className="before:content-['•'] before:mx-1"> {a}</span>)}
                     </div>
                   </button>
                 ))}
@@ -338,7 +349,7 @@
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 px-1">Sommaire</h2>
               {livreActif && (
                 <div className="bg-slate-900 rounded-2xl border border-slate-850 p-3 space-y-1.5 shadow-xl">
-                  {livreActif.chapitres.map(chapitre => (
+                  {(livreActif.chapitres || []).map(chapitre => (
                     <button
                       key={chapitre.id}
                       onClick={() => setChapitreSelectionneId(chapitre.id)}
@@ -347,7 +358,7 @@
                       `}
                     >
                       <span className="truncate">{chapitre.titre}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400">{chapitre.lignes.length} §</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400">{(chapitre.lignes || []).length} §</span>
                     </button>
                   ))}
                 </div>
@@ -359,7 +370,7 @@
               <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-1">Manuscrit</h2>
               <div className="bg-slate-900 rounded-2xl border border-slate-850 p-6 shadow-xl min-h-[400px] flex flex-col justify-between gap-6">
                 <div className="space-y-6 flex-1">
-                  {chapitreActif && chapitreActif.lignes.length > 0 ? (
+                  {chapitreActif && chapitreActif.lignes && chapitreActif.lignes.length > 0 ? (
                     chapitreActif.lignes.map((ligne) => (
                       <div 
                         key={ligne.id}
@@ -373,7 +384,9 @@
                           <span className="font-semibold text-amber-500/80">✍️ {ligne.auteur}</span>
                           <div className="flex gap-2 text-slate-500">
                             {ligne.illustration && <span>🖼️ Illustré</span>}
-                            {ligne.commentaires.length > 0 && <span className="text-amber-500/70 font-bold">💬 {ligne.commentaires.length}</span>}
+                            {ligne.commentaires && ligne.commentaires.length > 0 && (
+                              <span className="text-amber-500/70 font-bold">💬 {ligne.commentaires.length}</span>
+                            )}
                           </div>
                         </div>
                         {ligne.illustration && (
@@ -389,7 +402,7 @@
                 </div>
               </div>
 
-              {livreActif?.statut === "en_cours" && estAuteurAutorise && chapitreActif && (
+              {chapitreActif && (
                 <section className="bg-slate-900 rounded-2xl border border-slate-850 p-5 shadow-xl">
                   <form onSubmit={ajouterParagraphe} className="space-y-3">
                     <textarea
@@ -431,34 +444,28 @@
                             <p className="text-[10px] uppercase font-bold text-slate-500">Paragraphe de {ligneActive.auteur}</p>
                           </div>
 
-                          {livreActif.statut === "en_cours" && utilisateurActif.nom.toLowerCase() === ligneActive.auteur.toLowerCase() && (
-                            <form onSubmit={sauvegarderModification} className="space-y-3 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
-                              <textarea rows="3" value={texteEnCoursDEdition} onChange={(e) => setTexteEnCoursDEdition(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg font-serif" />
-                              <input type="text" placeholder="URL de l'image..." value={urlImageEnCours} onChange={(e) => setUrlImageEnCours(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg" />
-                              {erreurEdition && <p className="text-rose-400 text-[10px]">{erreurEdition}</p>}
-                              <button type="submit" className="w-full bg-slate-800 text-slate-200 text-[11px] py-1.5 rounded-lg">Mettre à jour</button>
-                            </form>
-                          )}
+                          <form onSubmit={sauvegarderModification} className="space-y-3 bg-slate-950/40 p-3 rounded-xl border border-slate-850">
+                            <textarea rows="3" value={texteEnCoursDEdition} onChange={(e) => setTexteEnCoursDEdition(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg font-serif" />
+                            <input type="text" placeholder="URL de l'image..." value={urlImageEnCours} onChange={(e) => setUrlImageEnCours(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg" />
+                            {erreurEdition && <p className="text-rose-400 text-[10px]">{erreurEdition}</p>}
+                            <button type="submit" className="w-full bg-slate-800 text-slate-200 text-[11px] py-1.5 rounded-lg">Mettre à jour</button>
+                          </form>
 
                           <div className="space-y-2">
                             <p className="text-[10px] uppercase font-bold text-slate-500">Commentaires</p>
-                            {ligneActive.commentaires.map(com => (
+                            {(ligneActive.commentaires || []).map(com => (
                               <div key={com.id} className="text-xs bg-slate-950/60 p-3 rounded-xl border border-slate-850 relative group">
                                 <p className="font-bold text-amber-500/90 text-[10px]">{com.auteur}</p>
                                 <p className="text-slate-300">{com.texte}</p>
-                                {livreActif.statut === "en_cours" && (
-                                  <button onClick={() => resoudreCommentaire(com.id)} className="absolute top-2 right-2 text-[10px] text-slate-500 hover:text-rose-400">✕</button>
-                                )}
+                                <button onClick={() => resoudreCommentaire(com.id)} className="absolute top-2 right-2 text-[10px] text-slate-500 hover:text-rose-400">✕</button>
                               </div>
                             ))}
                           </div>
 
-                          {livreActif.statut === "en_cours" && (
-                            <form onSubmit={ajouterCommentaire} className="space-y-2 pt-2 border-t border-slate-850">
-                              <textarea rows="2" placeholder="Ajouter une remarque..." value={texteCommentaire} onChange={(e) => setTexteCommentaire(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg" />
-                              <button type="submit" className="w-full bg-slate-800 text-slate-200 text-[11px] py-1.5 rounded-lg">Poster</button>
-                            </form>
-                          )}
+                          <form onSubmit={ajouterCommentaire} className="space-y-2 pt-2 border-t border-slate-850">
+                            <textarea rows="2" placeholder="Ajouter une remarque..." value={texteCommentaire} onChange={(e) => setTexteCommentaire(e.target.value)} className="w-full text-xs p-2 bg-slate-950 border border-slate-800 rounded-lg" />
+                            <button type="submit" className="w-full bg-slate-800 text-slate-200 text-[11px] py-1.5 rounded-lg">Poster</button>
+                          </form>
                         </div>
                       ) : (
                         <p className="text-slate-500 text-xs italic text-center py-8">Sélectionnez un paragraphe pour interagir.</p>
@@ -467,7 +474,7 @@
                   ) : (
                     <div className="flex flex-col h-full justify-between">
                       <div className="space-y-3 flex-1 overflow-y-auto mb-4">
-                        {livreActif.discussionInterne.map(msg => (
+                        {(livreActif?.discussionInterne || []).map(msg => (
                           <div key={msg.id} className="text-xs bg-slate-950/60 p-2.5 rounded-xl border border-slate-850">
                             <div className="flex justify-between text-[9px] text-slate-500 mb-0.5">
                               <span className="font-bold text-amber-500/90">{msg.auteur}</span>
@@ -477,12 +484,10 @@
                           </div>
                         ))}
                       </div>
-                      {livreActif.statut === "en_cours" && (
-                        <form onSubmit={envoyerMessageInterne} className="flex gap-2 pt-3 border-t border-slate-850">
-                          <input type="text" value={nouveauMessageInterne} onChange={(e) => setNouveauMessageInterne(e.target.value)} placeholder="Note aux co-auteurs..." className="flex-1 text-xs px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200" />
-                          <button type="submit" className="bg-slate-800 text-slate-200 text-xs px-3 rounded-lg">→</button>
-                        </form>
-                      )}
+                      <form onSubmit={envoyerMessageInterne} className="flex gap-2 pt-3 border-t border-slate-850">
+                        <input type="text" value={nouveauMessageInterne} onChange={(e) => setNouveauMessageInterne(e.target.value)} placeholder="Note aux co-auteurs..." className="flex-1 text-xs px-2.5 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200" />
+                        <button type="submit" className="bg-slate-800 text-slate-200 text-xs px-3 rounded-lg">→</button>
+                      </form>
                     </div>
                   )}
                 </div>
