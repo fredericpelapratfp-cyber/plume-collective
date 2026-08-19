@@ -7,6 +7,9 @@ function App() {
   const [livreSelectionneId, setLivreSelectionneId] = useState(null);
   const [chapitreSelectionneId, setChapitreSelectionneId] = useState(null);
   
+  // Onglet actif pour mobile/Spck ('bibliotheque', 'redaction', 'discussion')
+  const [ongletMobile, setOngletMobile] = useState("redaction");
+
   const [nouveauTitreLivre, setNouveauTitreLivre] = useState("");
   const [nouveauSynopsisLivre, setNouveauSynopsisLivre] = useState("");
   const [afficherFormLivre, setAfficherFormLivre] = useState(false);
@@ -93,6 +96,7 @@ function App() {
     setNouveauTitreLivre("");
     setNouveauSynopsisLivre("");
     setAfficherFormLivre(false);
+    setOngletMobile("redaction");
   };
 
   const basculerStatutLivre = (livreId, e) => {
@@ -135,19 +139,13 @@ function App() {
     var contenuHTML = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + livre.titre + '</title><style>body { font-family: "Calibri", serif; line-height: 1.6; margin: 40px; } h1 { text-align: center; font-size: 28pt; } .auteur { text-align: center; font-style: italic; margin-bottom: 20pt; } .synopsis { background: #f8fafc; padding: 15px; border-left: 4px solid #f59e0b; margin-bottom: 40pt; } h2 { font-size: 20pt; border-bottom: 1px solid #cbd5e1; margin-top: 30pt; } p { font-size: 12pt; text-indent: 20pt; text-align: justify; }</style></head><body><h1>' + livre.titre + '</h1><div class="auteur">Auteur : ' + livre.createur + '</div><div class="synopsis"><strong>Synopsis :</strong><br>' + livre.synopsis + '</div><hr>' + chapitresHTML + '</body></html>';
 
     try {
-      if (window.htmlDocx && window.saveAs) {
-        var converted = window.htmlDocx.asBlob(contenuHTML);
-        var nomFichier = livre.titre.toLowerCase().replace(/[^a-z0-9]/gi, '_') + '.doc';
-        window.saveAs(converted, nomFichier);
-      } else {
-        var blob = new Blob(['\ufeff' + contenuHTML], { type: 'application/msword' });
-        var url = URL.createObjectURL(blob);
-        var a = document.createElement('a');
-        a.href = url;
-        a.download = livre.titre.toLowerCase().replace(/[^a-z0-9]/gi, '_') + '.doc';
-        a.click();
-        URL.revokeObjectURL(url);
-      }
+      var blob = new Blob(['\ufeff' + contenuHTML], { type: 'application/msword' });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = livre.titre.toLowerCase().replace(/[^a-z0-9]/gi, '_') + '.doc';
+      a.click();
+      URL.revokeObjectURL(url);
     } catch (err) {
       console.error("Erreur d'exportation :", err);
       alert("Erreur lors de l'exportation Word.");
@@ -220,56 +218,59 @@ function App() {
 
   // --- RENDU (UI) ---
   return (
-    <div className="flex flex-col h-screen">
+    <div className="flex flex-col h-screen overflow-hidden">
       {/* HEADER */}
-      <header className="bg-indigo-900 text-white p-4 flex justify-between items-center shadow-md">
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">✒️</span>
-          <h1 className="text-xl font-bold tracking-wide">Plume Collective</h1>
+      <header className="bg-indigo-900 text-white p-3 flex justify-between items-center shadow-md shrink-0">
+        <div className="flex items-center space-x-2">
+          <span className="text-xl">✒️</span>
+          <h1 className="text-lg font-bold tracking-wide">Plume Collective</h1>
         </div>
-        <div className="flex items-center space-x-2 bg-indigo-800 px-3 py-1.5 rounded-full text-sm">
+        <div className="flex items-center space-x-1 bg-indigo-800 px-2.5 py-1 rounded-full text-xs">
           <span>👤</span>
           <span className="font-medium">{utilisateurActif.nom}</span>
         </div>
       </header>
 
-      {/* CONTENU PRINCIPAL */}
-      <div className="flex flex-1 overflow-hidden">
-        {/* BARRE LATÉRALE */}
-        <aside className="w-80 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800">
-          <div className="p-4 border-b border-slate-800 flex justify-between items-center">
-            <h2 className="font-semibold text-lg">Bibliothèque</h2>
+      {/* CONTENU PRINCIPAL Responsive */}
+      <div className="flex-1 flex overflow-hidden relative">
+        
+        {/* BARRE LATÉRALE (BIBLIOTHÈQUE) */}
+        <aside className={`w-full md:w-80 bg-slate-900 text-slate-200 flex flex-col border-r border-slate-800 shrink-0 ${
+          ongletMobile === 'bibliotheque' ? 'flex' : 'hidden md:flex'
+        }`}>
+          <div className="p-3 border-b border-slate-800 flex justify-between items-center">
+            <h2 className="font-semibold text-base">Bibliothèque</h2>
             <button 
               onClick={() => setAfficherFormLivre(!afficherFormLivre)}
-              className="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1 rounded text-sm transition"
+              className="bg-indigo-600 hover:bg-indigo-500 text-white px-2.5 py-1 rounded text-xs transition"
             >
               {afficherFormLivre ? "Annuler" : "+ Nouveau"}
             </button>
           </div>
 
           {afficherFormLivre && (
-            <form onSubmit={ajouterLivre} className="p-4 bg-slate-800 border-b border-slate-700 space-y-3">
+            <form onSubmit={ajouterLivre} className="p-3 bg-slate-800 border-b border-slate-700 space-y-2">
               <input
                 type="text"
                 placeholder="Titre du livre..."
                 value={nouveauTitreLivre}
                 onChange={(e) => setNouveauTitreLivre(e.target.value)}
-                className="w-full p-2 bg-slate-700 border border-slate-600 rounded text-sm text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
+                className="w-full p-2 bg-slate-700 border border-slate-600 rounded text-xs text-white placeholder-slate-400 focus:outline-none focus:border-indigo-500"
                 required
               />
               <textarea
                 placeholder="Synopsis..."
                 value={nouveauSynopsisLivre}
                 onChange={(e) => setNouveauSynopsisLivre(e.target.value)}
-                className="w-full p-2 bg-slate-700 border border-slate-600 rounded text-sm text-white placeholder-slate-400 h-20 focus:outline-none focus:border-indigo-500"
+                className="w-full p-2 bg-slate-700 border border-slate-600 rounded text-xs text-white placeholder-slate-400 h-16 focus:outline-none focus:border-indigo-500"
               />
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-1.5 rounded text-sm font-medium transition">
+              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-500 text-white py-1 rounded text-xs font-medium transition">
                 Créer le livre
               </button>
             </form>
           )}
 
-          <div className="flex-1 overflow-y-auto p-3 space-y-2">
+          <div className="flex-1 overflow-y-auto p-2 space-y-2">
             {livres.map(livre => {
               const estSelectionne = livre.id === livreSelectionneId;
               return (
@@ -278,6 +279,7 @@ function App() {
                   onClick={() => {
                     setLivreSelectionneId(livre.id);
                     setChapitreSelectionneId(livre.chapitres[0]?.id || null);
+                    setOngletMobile("redaction");
                   }}
                   className={`p-3 rounded-lg cursor-pointer transition flex flex-col justify-between ${
                     estSelectionne ? "bg-indigo-800 text-white" : "bg-slate-800 hover:bg-slate-700 text-slate-300"
@@ -285,8 +287,8 @@ function App() {
                 >
                   <div>
                     <div className="flex justify-between items-start">
-                      <h3 className="font-bold text-base leading-snug">{livre.titre}</h3>
-                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      <h3 className="font-bold text-sm leading-snug">{livre.titre}</h3>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full ${
                         livre.statut === 'termine' ? 'bg-emerald-900 text-emerald-300' : 'bg-amber-900 text-amber-300'
                       }`}>
                         {livre.statut === 'termine' ? 'Terminé' : 'En cours'}
@@ -295,7 +297,7 @@ function App() {
                     <p className="text-xs text-slate-400 mt-1 line-clamp-2">{livre.synopsis}</p>
                   </div>
 
-                  <div className="mt-3 pt-2 border-t border-slate-700/50 flex justify-between items-center text-xs">
+                  <div className="mt-2 pt-2 border-t border-slate-700/50 flex justify-between items-center text-xs">
                     <span>✍️ {livre.createur}</span>
                     <div className="flex space-x-1">
                       <button
@@ -327,152 +329,200 @@ function App() {
           </div>
         </aside>
 
-        {/* ZONE PRINCIPALE */}
-        {livreActif ? (
-          <main className="flex-1 flex flex-col bg-amber-50/30 overflow-hidden">
-            <div className="bg-white border-b border-slate-200 p-4 shadow-sm flex justify-between items-center">
-              <div className="flex items-center space-x-2 overflow-x-auto">
-                <span className="text-slate-400 font-medium text-sm mr-2">Chapitres :</span>
-                {livreActif.chapitres?.map(chapitre => (
-                  <button
-                    key={chapitre.id}
-                    onClick={() => setChapitreSelectionneId(chapitre.id)}
-                    className={`px-3 py-1.5 rounded-md text-sm font-medium transition ${
-                      chapitre.id === chapitreSelectionneId
-                        ? "bg-indigo-600 text-white shadow-sm"
-                        : "bg-slate-100 hover:bg-slate-200 text-slate-700"
-                    }`}
-                  >
-                    {chapitre.titre}
-                  </button>
-                ))}
-              </div>
-
-              <form onSubmit={ajouterChapitre} className="flex items-center space-x-2">
-                <input
-                  type="text"
-                  placeholder="Nouveau chapitre..."
-                  value={nouveauTitreChapitre}
-                  onChange={(e) => setNouveauTitreChapitre(e.target.value)}
-                  className="px-2.5 py-1 text-sm border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
-                />
-                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm transition">
-                  +
-                </button>
-              </form>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-8 max-w-4xl mx-auto w-full">
-              <div className="bg-white rounded-xl shadow-md border border-slate-200/80 p-8 min-h-full flex flex-col">
-                <div className="border-b border-slate-200 pb-4 mb-6">
-                  <h1 className="text-3xl font-serif font-bold text-slate-900">{livreActif.titre}</h1>
-                  <p className="text-slate-500 italic text-sm mt-1">Par {livreActif.createur}</p>
-                  <div className="mt-4 p-3 bg-amber-50 border-l-4 border-amber-400 text-amber-900 text-sm rounded">
-                    <strong>Synopsis :</strong> {livreActif.synopsis}
-                  </div>
+        {/* ZONE PRINCIPALE (RÉDACTION) */}
+        <main className={`flex-1 flex-col bg-amber-50/30 overflow-hidden w-full ${
+          ongletMobile === 'redaction' ? 'flex' : 'hidden md:flex'
+        }`}>
+          {livreActif ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* BARRE DES CHAPITRES */}
+              <div className="bg-white border-b border-slate-200 p-2 shadow-sm flex items-center justify-between overflow-x-auto shrink-0">
+                <div className="flex items-center space-x-1 overflow-x-auto">
+                  {livreActif.chapitres?.map(chapitre => (
+                    <button
+                      key={chapitre.id}
+                      onClick={() => setChapitreSelectionneId(chapitre.id)}
+                      className={`px-2.5 py-1 rounded text-xs font-medium whitespace-nowrap transition ${
+                        chapitre.id === chapitreSelectionneId
+                          ? "bg-indigo-600 text-white shadow-sm"
+                          : "bg-slate-100 hover:bg-slate-200 text-slate-700"
+                      }`}
+                    >
+                      {chapitre.titre}
+                    </button>
+                  ))}
                 </div>
 
-                {chapitreActif ? (
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <h2 className="text-xl font-serif font-bold text-indigo-900 mb-4 pb-2 border-b border-slate-100">
-                        {chapitreActif.titre}
-                      </h2>
+                <form onSubmit={ajouterChapitre} className="flex items-center space-x-1 ml-2 shrink-0">
+                  <input
+                    type="text"
+                    placeholder="Nouveau chap..."
+                    value={nouveauTitreChapitre}
+                    onChange={(e) => setNouveauTitreChapitre(e.target.value)}
+                    className="w-24 sm:w-32 px-2 py-1 text-xs border border-slate-300 rounded focus:outline-none focus:border-indigo-500"
+                  />
+                  <button type="submit" className="bg-indigo-600 text-white px-2 py-1 rounded text-xs">
+                    +
+                  </button>
+                </form>
+              </div>
 
-                      <div className="space-y-4 font-serif text-lg leading-relaxed text-slate-800">
-                        {chapitreActif.lignes?.length > 0 ? (
-                          chapitreActif.lignes.map(ligne => (
-                            <p key={ligne.id} className="relative group pl-4 border-l-2 border-transparent hover:border-indigo-300 transition">
-                              {ligne.texte}
-                              <span className="text-xs font-sans text-slate-400 ml-2 opacity-0 group-hover:opacity-100 transition">
-                                — {ligne.auteur}
-                              </span>
-                            </p>
-                          ))
-                        ) : (
-                          <p className="text-slate-400 italic text-base font-sans">
-                            Ce chapitre est encore vide. Écrivez le premier paragraphe ci-dessous !
-                          </p>
-                        )}
+              {/* EDITEUR DE TEXTE */}
+              <div className="flex-1 overflow-y-auto p-4 md:p-8 max-w-4xl mx-auto w-full">
+                <div className="bg-white rounded-xl shadow-md border border-slate-200/80 p-4 md:p-8 min-h-full flex flex-col justify-between">
+                  <div>
+                    <div className="border-b border-slate-200 pb-3 mb-4">
+                      <h1 className="text-2xl md:text-3xl font-serif font-bold text-slate-900">{livreActif.titre}</h1>
+                      <p className="text-slate-500 italic text-xs mt-0.5">Par {livreActif.createur}</p>
+                      <div className="mt-2 p-2.5 bg-amber-50 border-l-4 border-amber-400 text-amber-900 text-xs rounded">
+                        <strong>Synopsis :</strong> {livreActif.synopsis}
                       </div>
                     </div>
 
-                    <form onSubmit={ajouterLigne} className="mt-8 pt-4 border-t border-slate-200">
-                      <label className="block text-xs font-sans font-semibold text-slate-500 uppercase tracking-wider mb-2">
-                        Ajouter une contribution à ce chapitre
+                    {chapitreActif ? (
+                      <div>
+                        <h2 className="text-lg md:text-xl font-serif font-bold text-indigo-900 mb-3 pb-1 border-b border-slate-100">
+                          {chapitreActif.titre}
+                        </h2>
+
+                        <div className="space-y-3 font-serif text-base md:text-lg leading-relaxed text-slate-800">
+                          {chapitreActif.lignes?.length > 0 ? (
+                            chapitreActif.lignes.map(ligne => (
+                              <p key={ligne.id} className="relative group pl-3 border-l-2 border-indigo-200 md:border-transparent md:hover:border-indigo-300 transition">
+                                {ligne.texte}
+                                <span className="text-xs font-sans text-slate-400 ml-2 block sm:inline">
+                                  — {ligne.auteur}
+                                </span>
+                              </p>
+                            ))
+                          ) : (
+                            <p className="text-slate-400 italic text-sm font-sans">
+                              Ce chapitre est encore vide. Écrivez le premier paragraphe ci-dessous !
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-slate-500 italic text-sm">Veuillez sélectionner ou créer un chapitre.</p>
+                    )}
+                  </div>
+
+                  {chapitreActif && (
+                    <form onSubmit={ajouterLigne} className="mt-6 pt-3 border-t border-slate-200">
+                      <label className="block text-[10px] font-sans font-semibold text-slate-500 uppercase tracking-wider mb-1">
+                        Ajouter un paragraphe
                       </label>
-                      <div className="flex space-x-2">
+                      <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2">
                         <textarea
-                          rows="3"
+                          rows="2"
                           placeholder="Écrivez la suite de l'histoire ici..."
                           value={nouvelleLigneTexte}
                           onChange={(e) => setNouvelleLigneTexte(e.target.value)}
-                          className="flex-1 p-3 border border-slate-300 rounded-lg font-serif focus:outline-none focus:ring-2 focus:ring-indigo-500 text-base"
+                          className="flex-1 p-2.5 border border-slate-300 rounded-lg font-serif focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm md:text-base"
                         />
                         <button
                           type="submit"
-                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-sans px-5 rounded-lg font-medium shadow transition flex items-center justify-center"
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white font-sans px-4 py-2 rounded-lg font-medium shadow transition text-sm"
                         >
                           Publier
                         </button>
                       </div>
                     </form>
-                  </div>
-                ) : (
-                  <p className="text-slate-500 italic">Veuillez sélectionner ou créer un chapitre.</p>
-                )}
+                  )}
+                </div>
               </div>
             </div>
-          </main>
-        ) : (
-          <main className="flex-1 flex items-center justify-center text-slate-400">
-            <p>Sélectionnez ou créez un livre dans le menu de gauche.</p>
-          </main>
-        )}
+          ) : (
+            <div className="flex-1 flex items-center justify-center text-slate-400 p-4 text-center text-sm">
+              Sélectionnez ou créez un livre dans la bibliothèque.
+            </div>
+          )}
+        </main>
 
         {/* PANNEAU DE DISCUSSION */}
-        {livreActif && (
-          <aside className="w-80 bg-white border-l border-slate-200 flex flex-col">
-            <div className="p-4 border-b border-slate-200 bg-slate-50">
-              <h3 className="font-bold text-slate-700 flex items-center space-x-2">
-                <span>💬</span>
-                <span>Discussion d'auteurs</span>
-              </h3>
-            </div>
+        <aside className={`w-full md:w-80 bg-white border-l border-slate-200 flex flex-col shrink-0 ${
+          ongletMobile === 'discussion' ? 'flex' : 'hidden md:flex'
+        }`}>
+          <div className="p-3 border-b border-slate-200 bg-slate-50">
+            <h3 className="font-bold text-slate-700 text-sm flex items-center space-x-2">
+              <span>💬</span>
+              <span>Discussion d'auteurs</span>
+            </h3>
+          </div>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
-              {livreActif.discussionInterne?.length > 0 ? (
-                livreActif.discussionInterne.map(msg => (
-                  <div key={msg.id} className="bg-slate-100 p-2.5 rounded-lg text-sm">
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="font-semibold text-slate-800 text-xs">{msg.auteur}</span>
-                      <span className="text-slate-400 text-[10px]">{msg.date}</span>
+          {livreActif ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-3 space-y-2">
+                {livreActif.discussionInterne?.length > 0 ? (
+                  livreActif.discussionInterne.map(msg => (
+                    <div key={msg.id} className="bg-slate-100 p-2 rounded-lg text-xs">
+                      <div className="flex justify-between items-center mb-0.5">
+                        <span className="font-semibold text-slate-800">{msg.auteur}</span>
+                        <span className="text-slate-400 text-[9px]">{msg.date}</span>
+                      </div>
+                      <p className="text-slate-700">{msg.texte}</p>
                     </div>
-                    <p className="text-slate-700">{msg.texte}</p>
-                  </div>
-                ))
-              ) : (
-                <p className="text-xs text-slate-400 italic text-center mt-4">
-                  Aucune note d'équipe pour l'instant.
-                </p>
-              )}
-            </div>
+                  ))
+                ) : (
+                  <p className="text-xs text-slate-400 italic text-center mt-4">
+                    Aucune note d'équipe pour l'instant.
+                  </p>
+                )}
+              </div>
 
-            <form onSubmit={ajouterMessageDiscussion} className="p-3 border-t border-slate-200 flex space-x-2">
-              <input
-                type="text"
-                placeholder="Laissez un mot aux co-auteurs..."
-                value={nouveauMessageDiscussion}
-                onChange={(e) => setNouveauMessageDiscussion(e.target.value)}
-                className="flex-1 px-3 py-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500"
-              />
-              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs transition">
-                Envoi
-              </button>
-            </form>
-          </aside>
-        )}
+              <form onSubmit={ajouterMessageDiscussion} className="p-2 border-t border-slate-200 flex space-x-1.5 bg-white">
+                <input
+                  type="text"
+                  placeholder="Votre message..."
+                  value={nouveauMessageDiscussion}
+                  onChange={(e) => setNouveauMessageDiscussion(e.target.value)}
+                  className="flex-1 px-2.5 py-1.5 border border-slate-300 rounded text-xs focus:outline-none focus:border-indigo-500"
+                />
+                <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded text-xs transition">
+                  Envoi
+                </button>
+              </form>
+            </div>
+          ) : (
+            <div className="p-4 text-xs text-slate-400 text-center italic">
+              Sélectionnez un livre pour voir sa discussion.
+            </div>
+          )}
+        </aside>
+
       </div>
+
+      {/* BARRE DE NAVIGATION NATIVE MOBILE (Visible uniquement sur mobile / petits écrans) */}
+      <nav className="md:hidden bg-slate-900 border-t border-slate-800 flex justify-around p-2 shrink-0">
+        <button
+          onClick={() => setOngletMobile('bibliotheque')}
+          className={`flex flex-col items-center text-xs ${
+            ongletMobile === 'bibliotheque' ? 'text-amber-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <span className="text-base">📚</span>
+          <span>Livres</span>
+        </button>
+        <button
+          onClick={() => setOngletMobile('redaction')}
+          className={`flex flex-col items-center text-xs ${
+            ongletMobile === 'redaction' ? 'text-amber-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <span className="text-base">✍️</span>
+          <span>Rédaction</span>
+        </button>
+        <button
+          onClick={() => setOngletMobile('discussion')}
+          className={`flex flex-col items-center text-xs ${
+            ongletMobile === 'discussion' ? 'text-amber-400 font-bold' : 'text-slate-400'
+          }`}
+        >
+          <span className="text-base">💬</span>
+          <span>Discussion</span>
+        </button>
+      </nav>
+
     </div>
   );
 }
