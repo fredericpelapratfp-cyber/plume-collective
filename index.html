@@ -222,6 +222,29 @@
         setAfficherFormLivre(false);
       };
 
+      const basculerStatutLivre = (livreId, e) => {
+        e.stopPropagation();
+        const maj = livres.map(l => {
+          if (l.id !== livreId) return l;
+          return {
+            ...l,
+            statut: l.statut === 'termine' ? 'en_cours' : 'termine'
+          };
+        });
+        sauvegarderSurFirebase(maj);
+      };
+
+      const supprimerLivre = (livreId, titre, e) => {
+        e.stopPropagation();
+        if (window.confirm(`Voulez-vous vraiment supprimer le livre "${titre}" ?`)) {
+          const maj = livres.filter(l => l.id !== livreId);
+          sauvegarderSurFirebase(maj);
+          if (maj.length > 0) {
+            setLivreSelectionneId(maj[0].id);
+          }
+        }
+      };
+
       const ajouterChapitre = (e) => {
         e.preventDefault();
         if (!nouveauTitreChapitre.trim() || !livreActif) return;
@@ -251,6 +274,20 @@
         setAfficherFormChapitre(false);
       };
 
+      const supprimerChapitre = (chapitreId, titre, e) => {
+        e.stopPropagation();
+        if (window.confirm(`Supprimer le chapitre "${titre}" ?`)) {
+          const maj = livres.map(l => {
+            if (l.id !== livreSelectionneId) return l;
+            return {
+              ...l,
+              chapitres: (l.chapitres || []).filter(c => c.id !== chapitreId)
+            };
+          });
+          sauvegarderSurFirebase(maj);
+        }
+      };
+
       const gererSelectionLigne = (ligne) => {
         setLigneActive(ligne);
         setTexteEnCoursDEdition(ligne.texte);
@@ -260,7 +297,7 @@
 
       const ajouterParagraphe = (e) => {
         e.preventDefault();
-        if (!texteNouveauParagraphe.trim() || !chapitreActif) return;
+        if (!texteNouveauParagraphe.trim() || !chapitreActif || livreActif?.statut === 'termine') return;
 
         const nouvelleLigne = {
           id: Date.now(),
@@ -462,10 +499,10 @@
 
               <div className="space-y-2.5">
                 {livres.map(livre => (
-                  <button
+                  <div
                     key={livre.id}
                     onClick={() => setLivreSelectionneId(livre.id)}
-                    className={`w-full p-4 rounded-2xl border transition-all duration-200 text-left flex flex-col gap-2 cursor-pointer
+                    className={`w-full p-4 rounded-2xl border transition-all duration-200 text-left flex flex-col gap-2 cursor-pointer relative group
                       ${livreSelectionneId === livre.id 
                         ? 'bg-gradient-to-br from-slate-900 to-slate-850 border-amber-500/40 shadow-lg' 
                         : 'bg-slate-900/40 border-slate-850 hover:bg-slate-900/70'}
@@ -475,18 +512,31 @@
                       <h3 className={`text-sm font-bold ${livreSelectionneId === livre.id ? 'text-amber-400' : 'text-slate-200'}`}>
                         {livre.titre}
                       </h3>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider
-                        ${livre.statut === 'termine' ? 'bg-emerald-950/60 text-emerald-400' : 'bg-amber-950/60 text-amber-400'}
-                      `}>
+                      <button
+                        onClick={(e) => basculerStatutLivre(livre.id, e)}
+                        title="Cliquer pour changer le statut"
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider transition-transform active:scale-95
+                          ${livre.statut === 'termine' ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/40' : 'bg-amber-950/60 text-amber-400 border border-amber-800/40'}
+                        `}
+                      >
                         {livre.statut === 'termine' ? 'Clos' : 'En cours'}
-                      </span>
+                      </button>
                     </div>
                     <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed">{livre.synopsis}</p>
-                    <div className="flex flex-wrap gap-1 items-center pt-1 text-[10px] text-slate-500">
-                      <span className="text-amber-500/80 font-bold">👑 {livre.createur}</span>
-                      {(livre.coAuteurs || []).map(a => <span key={a} className="before:content-['•'] before:mx-1"> {a}</span>)}
+                    <div className="flex items-center justify-between pt-1 text-[10px] text-slate-500">
+                      <div className="flex flex-wrap gap-1 items-center">
+                        <span className="text-amber-500/80 font-bold">👑 {livre.createur}</span>
+                        {(livre.coAuteurs || []).map(a => <span key={a} className="before:content-['•'] before:mx-1"> {a}</span>)}
+                      </div>
+                      <button
+                        onClick={(e) => supprimerLivre(livre.id, livre.titre, e)}
+                        className="text-slate-600 hover:text-rose-400 px-1 py-0.5 rounded transition-colors"
+                        title="Supprimer le livre"
+                      >
+                        🗑️
+                      </button>
                     </div>
-                  </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -495,7 +545,7 @@
             <div className="space-y-4 text-left">
               <div className="flex items-center justify-between">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-1">Sommaire</h2>
-                {livreActif && (
+                {livreActif && livreActif.statut !== 'termine' && (
                   <button 
                     onClick={() => setAfficherFormChapitre(!afficherFormChapitre)}
                     className="text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1 rounded-lg transition-all"
@@ -510,7 +560,7 @@
                   <h3 className="text-xs font-bold text-amber-400 uppercase">Nouveau chapitre</h3>
                   <input
                     type="text"
-                    placeholder="Titre du chapitre (ex: L'évasion)..."
+                    placeholder="Titre du chapitre..."
                     value={nouveauTitreChapitre}
                     onChange={(e) => setNouveauTitreChapitre(e.target.value)}
                     className="w-full text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 outline-none focus:border-amber-500"
@@ -528,16 +578,29 @@
               {livreActif && (
                 <div className="bg-slate-900 rounded-2xl border border-slate-850 p-3 space-y-1.5 shadow-xl">
                   {(livreActif.chapitres || []).map(chapitre => (
-                    <button
+                    <div
                       key={chapitre.id}
                       onClick={() => setChapitreSelectionneId(chapitre.id)}
-                      className={`w-full px-4 py-3 rounded-xl text-left text-xs font-semibold transition-all cursor-pointer flex items-center justify-between
+                      className={`w-full px-3 py-2.5 rounded-xl text-xs font-semibold transition-all cursor-pointer flex items-center justify-between group
                         ${chapitreSelectionneId === chapitre.id ? 'bg-amber-600 text-white' : 'text-slate-300 hover:bg-slate-850'}
                       `}
                     >
-                      <span className="truncate">{chapitre.titre}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400">{(chapitre.lignes || []).length} §</span>
-                    </button>
+                      <span className="truncate pr-2">{chapitre.titre}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded ${chapitreSelectionneId === chapitre.id ? 'bg-amber-700 text-amber-100' : 'bg-slate-950 text-slate-400'}`}>
+                          {(chapitre.lignes || []).length} §
+                        </span>
+                        {(livreActif.chapitres || []).length > 1 && (
+                          <button
+                            onClick={(e) => supprimerChapitre(chapitre.id, chapitre.titre, e)}
+                            className="text-slate-400 hover:text-rose-300 opacity-60 hover:opacity-100 text-[11px]"
+                            title="Supprimer le chapitre"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -582,20 +645,26 @@
 
               {chapitreActif && (
                 <section className="bg-slate-900 rounded-2xl border border-slate-850 p-5 shadow-xl">
-                  <form onSubmit={ajouterParagraphe} className="space-y-3">
-                    <textarea
-                      rows="4"
-                      value={texteNouveauParagraphe}
-                      onChange={(e) => setTexteNouveauParagraphe(e.target.value)}
-                      placeholder="Rédigez le paragraphe suivant..." 
-                      className="w-full px-4 py-3 bg-slate-950 border border-slate-850 rounded-xl text-slate-100 font-serif text-sm outline-none focus:border-amber-500"
-                    />
-                    <div className="flex justify-end">
-                      <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer">
-                        Ajouter au manuscrit
-                      </button>
+                  {livreActif?.statut === 'termine' ? (
+                    <div className="text-center py-4 text-xs text-amber-400/80 bg-slate-950/50 rounded-xl border border-slate-800">
+                      🔒 Ce projet est marqué comme <strong>Clos</strong>. Rebasculez-le en <em>En cours</em> pour ajouter du texte.
                     </div>
-                  </form>
+                  ) : (
+                    <form onSubmit={ajouterParagraphe} className="space-y-3">
+                      <textarea
+                        rows="4"
+                        value={texteNouveauParagraphe}
+                        onChange={(e) => setTexteNouveauParagraphe(e.target.value)}
+                        placeholder="Rédigez le paragraphe suivant..." 
+                        className="w-full px-4 py-3 bg-slate-950 border border-slate-850 rounded-xl text-slate-100 font-serif text-sm outline-none focus:border-amber-500"
+                      />
+                      <div className="flex justify-end">
+                        <button type="submit" className="bg-amber-600 hover:bg-amber-500 text-white font-semibold py-2 px-4 rounded-xl text-xs cursor-pointer">
+                          Ajouter au manuscrit
+                        </button>
+                      </div>
+                    </form>
+                  )}
                 </section>
               )}
             </div>
