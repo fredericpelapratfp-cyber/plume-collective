@@ -5,21 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Plume Collective</title>
   
-  <!-- Librairies React & ReactDOM -->
+  <!-- React & ReactDOM -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
   
-  <!-- Compilateur Babel pour exécuter JSX sur mobile -->
+  <!-- Babel -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   
-  <!-- Styling Tailwind CSS -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- SDK Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 </head>
 <body class="bg-slate-100">
 
   <div id="root"></div>
 
-  <!-- Script React chargé en mode JSX/Babel -->
   <script type="text/babel" src="app.js"></script>
 
 </body>
