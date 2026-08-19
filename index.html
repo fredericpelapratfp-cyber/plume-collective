@@ -65,11 +65,48 @@
                 ]
               }
             ]
+          },
+          {
+            id: 102,
+            titre: "Chapitre 2 : La Découverte",
+            lignes: [
+              {
+                id: 1002,
+                auteur: "Marc",
+                texte: "L'équipe s'enfonça dans la crevasse sombre. Les parois reflétaient une lumière métallique inhabituelle.",
+                illustration: "",
+                commentaires: []
+              }
+            ]
           }
         ],
         discussionInterne: [
           { id: 1, auteur: "Frédéric", heure: "14:32", texte: "Salut l'équipe, j'ai posé les bases du premier chapitre !" }
         ]
+      },
+      {
+        id: 2,
+        titre: "L'Énigme du Vieux Lille",
+        synopsis: "Un manuscrit oublié révèle l'existence de souterrains sous la citadelle.",
+        createur: "Frédéric",
+        coAuteurs: ["Alex"],
+        statut: "en_cours",
+        chapitres: [
+          {
+            id: 201,
+            titre: "Chapitre 1 : Les Archives",
+            lignes: [
+              {
+                id: 2001,
+                auteur: "Frédéric",
+                texte: "En dépoussiérant les parchemins de la bibliothèque, un plan en cuir jauni tomba au sol.",
+                illustration: "",
+                commentaires: []
+              }
+            ]
+          }
+        ],
+        discussionInterne: []
       }
     ];
 
@@ -82,20 +119,27 @@
       const [ongletActif, setOngletActif] = useState('relecture');
       const [statutFirebase, setStatutFirebase] = useState('Connexion...');
 
+      // Formulaires
       const [texteNouveauParagraphe, setTexteNouveauParagraphe] = useState('');
       const [texteCommentaire, setTexteCommentaire] = useState('');
       const [nouveauMessageInterne, setNouveauMessageInterne] = useState('');
-      
       const [texteEnCoursDEdition, setTexteEnCoursDEdition] = useState('');
       const [urlImageEnCours, setUrlImageEnCours] = useState('');
       const [erreurEdition, setErreurEdition] = useState('');
 
-      // Synchronisation Realtime Database
+      // Formulaires de création
+      const [afficherFormLivre, setAfficherFormLivre] = useState(false);
+      const [nouveauTitreLivre, setNouveauTitreLivre] = useState('');
+      const [nouveauSynopsisLivre, setNouveauSynopsisLivre] = useState('');
+
+      const [afficherFormChapitre, setAfficherFormChapitre] = useState(false);
+      const [nouveauTitreChapitre, setNouveauTitreChapitre] = useState('');
+
       useEffect(() => {
         const checkInterval = setInterval(() => {
           if (window.rtdb && window.rtdbRef && window.rtdbOnValue) {
             clearInterval(checkInterval);
-            const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_main/livres');
+            const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_v2/livres');
             
             window.rtdbOnValue(livresRef, (snapshot) => {
               const data = snapshot.val();
@@ -120,7 +164,7 @@
         setLivres(nouveauxLivres);
         if (window.rtdb && window.rtdbRef && window.rtdbSet) {
           setStatutFirebase('Sauvegarde...');
-          const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_main/livres');
+          const livresRef = window.rtdbRef(window.rtdb, 'projets/plume_v2/livres');
           window.rtdbSet(livresRef, nouveauxLivres)
             .then(() => setStatutFirebase('Enregistré !'))
             .catch(() => setStatutFirebase('Erreur sauvegarde'));
@@ -130,15 +174,82 @@
       useEffect(() => {
         const livre = livres.find(l => l.id === livreSelectionneId);
         if (livre && livre.chapitres && livre.chapitres.length > 0) {
-          setChapitreSelectionneId(livre.chapitres[0].id);
+          const chapitreExiste = livre.chapitres.some(c => c.id === chapitreSelectionneId);
+          if (!chapitreExiste) {
+            setChapitreSelectionneId(livre.chapitres[0].id);
+          }
         } else {
           setChapitreSelectionneId(null);
         }
         setLigneActive(null);
-      }, [livreSelectionneId]);
+      }, [livreSelectionneId, livres]);
 
       const livreActif = livres.find(l => l.id === livreSelectionneId);
       const chapitreActif = livreActif?.chapitres?.find(c => c.id === chapitreSelectionneId);
+
+      const ajouterLivre = (e) => {
+        e.preventDefault();
+        if (!nouveauTitreLivre.trim()) return;
+
+        const nouveauLivreId = Date.now();
+        const premierChapitreId = nouveauLivreId + 1;
+
+        const nouveauLivre = {
+          id: nouveauLivreId,
+          titre: nouveauTitreLivre.trim(),
+          synopsis: nouveauSynopsisLivre.trim() || "Aucun synopsis pour le moment.",
+          createur: utilisateurActif.nom,
+          coAuteurs: [],
+          statut: "en_cours",
+          chapitres: [
+            {
+              id: premierChapitreId,
+              titre: "Chapitre 1 : Premier Pas",
+              lignes: []
+            }
+          ],
+          discussionInterne: []
+        };
+
+        const maj = [...livres, nouveauLivre];
+        sauvegarderSurFirebase(maj);
+
+        setLivreSelectionneId(nouveauLivreId);
+        setChapitreSelectionneId(premierChapitreId);
+
+        setNouveauTitreLivre('');
+        setNouveauSynopsisLivre('');
+        setAfficherFormLivre(false);
+      };
+
+      const ajouterChapitre = (e) => {
+        e.preventDefault();
+        if (!nouveauTitreChapitre.trim() || !livreActif) return;
+
+        const nouveauChapitreId = Date.now();
+        const numChapitre = (livreActif.chapitres || []).length + 1;
+        const titreComplet = `Chapitre ${numChapitre} : ${nouveauTitreChapitre.trim()}`;
+
+        const nouveauChapitre = {
+          id: nouveauChapitreId,
+          titre: titreComplet,
+          lignes: []
+        };
+
+        const maj = livres.map(l => {
+          if (l.id !== livreSelectionneId) return l;
+          return {
+            ...l,
+            chapitres: [...(l.chapitres || []), nouveauChapitre]
+          };
+        });
+
+        sauvegarderSurFirebase(maj);
+
+        setChapitreSelectionneId(nouveauChapitreId);
+        setNouveauTitreChapitre('');
+        setAfficherFormChapitre(false);
+      };
 
       const gererSelectionLigne = (ligne) => {
         setLigneActive(ligne);
@@ -312,7 +423,43 @@
             
             {/* BIBLIOTHÈQUE */}
             <div className="space-y-4 text-left">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 px-1">Bibliothèque</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-1">Bibliothèque</h2>
+                <button 
+                  onClick={() => setAfficherFormLivre(!afficherFormLivre)}
+                  className="text-[11px] font-semibold bg-amber-600 hover:bg-amber-500 text-white px-2.5 py-1 rounded-lg transition-all"
+                >
+                  {afficherFormLivre ? 'Fermer' : '+ Nouveau livre'}
+                </button>
+              </div>
+
+              {afficherFormLivre && (
+                <form onSubmit={ajouterLivre} className="bg-slate-900 p-4 rounded-2xl border border-amber-500/30 space-y-3 shadow-lg">
+                  <h3 className="text-xs font-bold text-amber-400 uppercase">Créer un projet</h3>
+                  <input
+                    type="text"
+                    placeholder="Titre du livre..."
+                    value={nouveauTitreLivre}
+                    onChange={(e) => setNouveauTitreLivre(e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 outline-none focus:border-amber-500"
+                    required
+                  />
+                  <textarea
+                    rows="3"
+                    placeholder="Synopsis / Intention..."
+                    value={nouveauSynopsisLivre}
+                    onChange={(e) => setNouveauSynopsisLivre(e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 outline-none focus:border-amber-500"
+                  />
+                  <button
+                    type="submit"
+                    className="w-full text-xs bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-xl font-semibold"
+                  >
+                    Lancer l'écriture
+                  </button>
+                </form>
+              )}
+
               <div className="space-y-2.5">
                 {livres.map(livre => (
                   <button
@@ -346,7 +493,38 @@
 
             {/* SOMMAIRE */}
             <div className="space-y-4 text-left">
-              <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-2 px-1">Sommaire</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-xs font-bold uppercase tracking-widest text-slate-500 px-1">Sommaire</h2>
+                {livreActif && (
+                  <button 
+                    onClick={() => setAfficherFormChapitre(!afficherFormChapitre)}
+                    className="text-[11px] font-semibold bg-slate-800 hover:bg-slate-700 text-amber-400 border border-slate-700 px-2.5 py-1 rounded-lg transition-all"
+                  >
+                    {afficherFormChapitre ? 'Annuler' : '+ Chapitre'}
+                  </button>
+                )}
+              </div>
+
+              {afficherFormChapitre && (
+                <form onSubmit={ajouterChapitre} className="bg-slate-900 p-4 rounded-2xl border border-slate-800 space-y-3 shadow-lg">
+                  <h3 className="text-xs font-bold text-amber-400 uppercase">Nouveau chapitre</h3>
+                  <input
+                    type="text"
+                    placeholder="Titre du chapitre (ex: L'évasion)..."
+                    value={nouveauTitreChapitre}
+                    onChange={(e) => setNouveauTitreChapitre(e.target.value)}
+                    className="w-full text-xs px-3 py-2 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 outline-none focus:border-amber-500"
+                    required
+                  />
+                  <button
+                    type="submit"
+                    className="w-full text-xs bg-amber-600 hover:bg-amber-500 text-white py-2 rounded-xl font-semibold"
+                  >
+                    Ajouter le chapitre
+                  </button>
+                </form>
+              )}
+
               {livreActif && (
                 <div className="bg-slate-900 rounded-2xl border border-slate-850 p-3 space-y-1.5 shadow-xl">
                   {(livreActif.chapitres || []).map(chapitre => (
@@ -397,7 +575,7 @@
                       </div>
                     ))
                   ) : (
-                    <p className="text-xs text-slate-500 italic font-serif py-12 text-center">Le manuscrit est encore vierge.</p>
+                    <p className="text-xs text-slate-500 italic font-serif py-12 text-center">Le manuscrit est encore vierge pour ce chapitre.</p>
                   )}
                 </div>
               </div>
