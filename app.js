@@ -193,18 +193,18 @@ function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      {/* HEADER */}
-      <header className="bg-indigo-900 text-white p-3 flex justify-between items-center shadow-md shrink-0">
-        <div className="flex items-center space-x-2">
-          <span className="text-xl">✒️</span>
-          <h1 className="text-lg font-bold tracking-wide">Plume Collective</h1>
-        </div>
-        <div className="flex items-center space-x-1 bg-indigo-800 px-2.5 py-1 rounded-full text-xs">
-          <span>👤</span>
-          <span className="font-medium">{utilisateurActif.nom}</span>
-        </div>
-      </header>
+  <div className="flex flex-col h-screen pb-16 md:pb-0 overflow-hidden">
+    {/* HEADER */}
+    <header className="bg-indigo-900 text-white p-3 flex justify-between items-center shadow-md shrink-0">
+      <div className="flex items-center space-x-2">
+        <span className="text-xl">✒️</span>
+        <h1 className="text-lg font-bold tracking-wide">Plume Collective</h1>
+      </div>
+      <div className="flex items-center space-x-1 bg-indigo-800 px-2.5 py-1 rounded-full text-xs">
+        <span>👤</span>
+        <span className="font-medium">{utilisateurActif.nom}</span>
+      </div>
+    </header>
 
       {/* CONTENU PRINCIPAL */}
       <div className="flex-1 flex overflow-hidden relative">
@@ -513,37 +513,36 @@ function App() {
 
       </div>
 
-      {/* NAVIGATION MOBILE */}
-      <nav className="md:hidden bg-slate-900 border-t border-slate-800 flex justify-around p-2 shrink-0">
+            {/* NAVIGATION MOBILE FIXÉE EN BAS */}
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 flex justify-around p-2 z-50 h-16">
         <button
           onClick={() => setOngletMobile('bibliotheque')}
-          className={`flex flex-col items-center text-xs ${
+          className={`flex flex-col items-center justify-center w-full text-xs ${
             ongletMobile === 'bibliotheque' ? 'text-amber-400 font-bold' : 'text-slate-400'
           }`}
         >
-          <span className="text-base">📚</span>
-          <span>Livres</span>
+          <span className="text-lg">📚</span>
+          <span className="text-[10px]">Livres</span>
         </button>
         <button
           onClick={() => setOngletMobile('redaction')}
-          className={`flex flex-col items-center text-xs ${
+          className={`flex flex-col items-center justify-center w-full text-xs ${
             ongletMobile === 'redaction' ? 'text-amber-400 font-bold' : 'text-slate-400'
           }`}
         >
-          <span className="text-base">✍️</span>
-          <span>Rédaction</span>
+          <span className="text-lg">✍️</span>
+          <span className="text-[10px]">Rédaction</span>
         </button>
         <button
           onClick={() => setOngletMobile('discussion')}
-          className={`flex flex-col items-center text-xs ${
+          className={`flex flex-col items-center justify-center w-full text-xs ${
             ongletMobile === 'discussion' ? 'text-amber-400 font-bold' : 'text-slate-400'
           }`}
         >
-          <span className="text-base">💬</span>
-          <span>Discussion</span>
+          <span className="text-lg">💬</span>
+          <span className="text-[10px]">Discussion</span>
         </button>
       </nav>
-
     </div>
   );
 }

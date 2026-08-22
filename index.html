@@ -1,27 +1,24 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="fr" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Plume Collective</title>
 
-  <!-- Tailwind CSS pour la mise en page -->
+  <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
 
-  <!-- React & ReactDOM -->
+  <!-- React, ReactDOM et Babel -->
   <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
-
-  <!-- Babel pour compiler la syntaxe JSX de app.js -->
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-100 font-sans antialiased overflow-hidden">
+<body class="bg-slate-100 font-sans antialiased h-full">
 
-  <!-- Point d'ancrage React -->
-  <div id="root"></div>
+  <div id="root" class="h-full"></div>
 
-  <!-- Chargement du script React -->
-  <script type="text/babel" src="app.js"></script>
+  <!-- Charge app.js avec un anti-cache ?v=1.2 -->
+  <script type="text/babel" src="app.js?v=1.2"></script>
 
 </body>
 </html>
